@@ -16,6 +16,13 @@ The data pipeline is orchestrated using AWS Glue workflows and consists of the f
 
 1. **Google Drive Sync** → Extract raw files to S3
 2. **Universal Cleaning** → Sanitize and format CSVs into staging
+---
+
+<p align="center">
+  <img src="Images/univeral-cleani.png" alt="Data Cleansing" width="800"/>
+</p>
+
+---
 3. **Source File Routing** → Move valid data to processed S3, invalid to error
 4. **Validation** → Check that required staging folders contain files
 5. **Transformation** → Generate warehouse-ready Parquet for Snowflake
