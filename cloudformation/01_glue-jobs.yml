@@ -1,0 +1,142 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Glue Jobs - Sync and Transform
+
+Parameters:
+  ProjectPrefix:
+    Type: String
+    Default: nh
+  Environment:
+    Type: String
+    Default: dev
+
+Resources:
+
+  SyncDriveToS3Job:
+    Type: AWS::Glue::Job
+    Properties:
+      Name: !Sub "${ProjectPrefix}-drive-sync-${Environment}"
+      Role: !ImportValue GlueJobRoleArn
+      Command:
+        Name: glueetl
+        ScriptLocation: !Sub "s3://${ProjectPrefix}-source-${AWS::AccountId}-${Environment}/scripts/nh-sync-drive-to-s3.py"
+        PythonVersion: "3"
+      DefaultArguments:
+        "--TempDir": !Sub "s3://${ProjectPrefix}-source-${AWS::AccountId}-${Environment}/temp/"
+        "--S3_BUCKET": !ImportValue SourceBucketName
+        "--CONFIG_KEY": "scripts/config.json"
+        "--SERVICE_ACCOUNT_KEY": "scripts/drive-service-account-452003-0f5aaba389c1.json"
+        "--enable-metrics": ""
+        "--enable-continuous-cloudwatch-log": "true"
+        "--job-language": "python"
+        "--additional-python-modules": "google-api-python-client==2.41.0,google-auth==2.6.0,google-auth-httplib2==0.1.0,google-auth-oauthlib==0.5.2,urllib3==1.26.15"
+      GlueVersion: "3.0"
+      MaxRetries: 1
+      Timeout: 30
+      ExecutionProperty:
+        MaxConcurrentRuns: 1
+      NumberOfWorkers: 5
+      WorkerType: G.1X
+
+  UniversalCleaningJob:
+    Type: AWS::Glue::Job
+    Properties:
+      Name: !Sub "${ProjectPrefix}-etl-universal-cleaning-${Environment}"
+      Role: !ImportValue GlueJobRoleArn
+      Command:
+        Name: glueetl
+        ScriptLocation: !Sub "s3://${ProjectPrefix}-source-${AWS::AccountId}-${Environment}/scripts/nh-etl-universal-cleaning.py"
+        PythonVersion: "3"
+      DefaultArguments:
+        "--TempDir": !Sub "s3://${ProjectPrefix}-source-${AWS::AccountId}-${Environment}/temp/"
+        "--SOURCE_PATH": !Sub "s3://${ProjectPrefix}-source-${AWS::AccountId}-${Environment}/raw/"
+        "--STAGING_PATH": !Sub "s3://${ProjectPrefix}-staging-${AWS::AccountId}-${Environment}/staging/"
+        "--ERROR_PATH": !Sub "s3://${ProjectPrefix}-error-${AWS::AccountId}-${Environment}/error/"
+        "--enable-metrics": ""
+        "--enable-continuous-cloudwatch-log": "true"
+        "--job-language": "python"
+      GlueVersion: "3.0"
+      MaxRetries: 1
+      Timeout: 30
+      ExecutionProperty:
+        MaxConcurrentRuns: 1
+      NumberOfWorkers: 5
+      WorkerType: G.1X
+
+  
+  MoveSourceFilesJob:
+    Type: AWS::Glue::Job
+    Properties:
+      Name: !Sub "${ProjectPrefix}-move-sources-files-${Environment}"
+      Role: !ImportValue GlueJobRoleArn
+      Command:
+        Name: glueetl
+        ScriptLocation: !Sub "s3://${ProjectPrefix}-source-${AWS::AccountId}-${Environment}/scripts/nh-move-sources-files.py"
+        PythonVersion: "3"
+      DefaultArguments:
+        "--SOURCE_BUCKET": !Sub "${ProjectPrefix}-source-${AWS::AccountId}-${Environment}"
+        "--PROCESSED_BUCKET": !Sub "${ProjectPrefix}-processed-${AWS::AccountId}-${Environment}"
+        "--ERROR_BUCKET": !Sub "${ProjectPrefix}-error-${AWS::AccountId}-${Environment}"
+        "--PREFIX": "staging/"
+        "--S3_FOLDERS": "provider_info,qualitymsr_mds,survey_summary,penalties"
+        "--DRY_RUN": "false"
+        "--enable-metrics": ""
+        "--enable-continuous-cloudwatch-log": "true"
+        "--job-language": "python"
+      GlueVersion: "3.0"
+      MaxRetries: 1
+      Timeout: 30
+      ExecutionProperty:
+        MaxConcurrentRuns: 1
+      NumberOfWorkers: 5
+      WorkerType: G.1X
+
+
+  ValidateStagingFilesJob:
+    Type: AWS::Glue::Job
+    Properties:
+      Name: !Sub "${ProjectPrefix}-validate-staging-${Environment}"
+      Role: !ImportValue GlueJobRoleArn
+      Command:
+        Name: glueetl
+        ScriptLocation: !Sub "s3://${ProjectPrefix}-source-${AWS::AccountId}-${Environment}/scripts/nh-validate-staging.py"
+        PythonVersion: "3"
+      DefaultArguments:
+        "--STAGING_BUCKET": !Sub "${ProjectPrefix}-staging-${AWS::AccountId}-${Environment}"
+        "--REQUIRED_PREFIXES": "provider_info,qualitymsr_mds,survey_summary,penalties"
+        "--enable-metrics": ""
+        "--enable-continuous-cloudwatch-log": "true"
+        "--job-language": "python"
+      GlueVersion: "3.0"
+      MaxRetries: 1
+      Timeout: 30
+      ExecutionProperty:
+        MaxConcurrentRuns: 1
+      NumberOfWorkers: 5
+      WorkerType: G.1X
+  
+
+  TransformJob:
+    Type: AWS::Glue::Job
+    Properties:
+      Name: !Sub "${ProjectPrefix}-etl-transform-${Environment}"
+      Role: !ImportValue GlueJobRoleArn
+      Command:
+        Name: glueetl
+        ScriptLocation: !Sub "s3://${ProjectPrefix}-source-${AWS::AccountId}-${Environment}/scripts/nh-etl-transform.py"
+        PythonVersion: "3"
+      DefaultArguments:
+        "--STAGING_PATH": !Sub "s3://${ProjectPrefix}-staging-${AWS::AccountId}-${Environment}/staging/"
+        "--TRANSFORM_PATH": !Sub "s3://${ProjectPrefix}-transform-${AWS::AccountId}-${Environment}/transform/"
+        "--ERROR_PATH": !Sub "s3://${ProjectPrefix}-error-${AWS::AccountId}-${Environment}/error/"
+        "--DOMAIN": "provider"  
+        "--enable-metrics": ""
+        "--enable-continuous-cloudwatch-log": "true"
+        "--job-language": "python"
+      GlueVersion: "3.0"
+      MaxRetries: 1
+      Timeout: 30
+      ExecutionProperty:
+        MaxConcurrentRuns: 1
+      NumberOfWorkers: 5
+      WorkerType: G.1X
+

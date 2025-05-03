@@ -4,6 +4,12 @@ This repository contains infrastructure-as-code templates and scripts to automat
 
 ---
 
+<p align="center">
+  <img src="Images/GlueELT.png" alt="Data Pipeline Diagram" width="800"/>
+</p>
+
+---
+
 ## 📐 Architecture Overview
 
 The data pipeline is orchestrated using AWS Glue workflows and consists of the following stages:

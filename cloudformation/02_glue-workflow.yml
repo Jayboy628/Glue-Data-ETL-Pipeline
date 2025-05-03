@@ -1,0 +1,88 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Glue Workflow and Triggers
+
+Parameters:
+  ProjectPrefix:
+    Type: String
+    Default: nh
+  Environment:
+    Type: String
+    Default: dev
+
+Resources:
+  GlueETLWorkflow:
+    Type: AWS::Glue::Workflow
+    Properties:
+      Name: !Sub "${ProjectPrefix}-etl-workflow-${Environment}"
+      Description: "ETL pipeline workflow: sync → clean → move files → validate → transform"
+
+  StartSyncTrigger:
+    Type: AWS::Glue::Trigger
+    Properties:
+      Name: !Sub "${ProjectPrefix}-trigger-sync-${Environment}"
+      Type: SCHEDULED
+      Schedule: "cron(0 * * * ? *)"
+      StartOnCreation: true
+      WorkflowName: !Ref GlueETLWorkflow
+      Actions:
+        - JobName: !Sub "${ProjectPrefix}-drive-sync-${Environment}"
+
+  UniversalCleaningTrigger:
+    Type: AWS::Glue::Trigger
+    Properties:
+      Name: !Sub "${ProjectPrefix}-trigger-cleaning-${Environment}"
+      Type: CONDITIONAL
+      StartOnCreation: true
+      WorkflowName: !Ref GlueETLWorkflow
+      Predicate:
+        Conditions:
+          - LogicalOperator: EQUALS
+            JobName: !Sub "${ProjectPrefix}-drive-sync-${Environment}"
+            State: SUCCEEDED
+      Actions:
+        - JobName: !Sub "${ProjectPrefix}-etl-universal-cleaning-${Environment}"
+
+  MoveSourceFilesTrigger:
+    Type: AWS::Glue::Trigger
+    Properties:
+      Name: !Sub "${ProjectPrefix}-trigger-move-files-${Environment}"
+      Type: CONDITIONAL
+      StartOnCreation: true
+      WorkflowName: !Ref GlueETLWorkflow
+      Predicate:
+        Conditions:
+          - LogicalOperator: EQUALS
+            JobName: !Sub "${ProjectPrefix}-etl-universal-cleaning-${Environment}"
+            State: SUCCEEDED
+      Actions:
+        - JobName: !Sub "${ProjectPrefix}-move-sources-files-${Environment}"
+
+  ValidateStagingFilesTrigger:
+    Type: AWS::Glue::Trigger
+    Properties:
+      Name: !Sub "${ProjectPrefix}-trigger-validate-staging-${Environment}"
+      Type: CONDITIONAL
+      StartOnCreation: true
+      WorkflowName: !Ref GlueETLWorkflow
+      Predicate:
+        Conditions:
+          - LogicalOperator: EQUALS
+            JobName: !Sub "${ProjectPrefix}-move-sources-files-${Environment}"
+            State: SUCCEEDED
+      Actions:
+        - JobName: !Sub "${ProjectPrefix}-validate-staging-${Environment}"
+
+  TransformTrigger:
+    Type: AWS::Glue::Trigger
+    Properties:
+      Name: !Sub "${ProjectPrefix}-trigger-transform-${Environment}"
+      Type: CONDITIONAL
+      StartOnCreation: true
+      WorkflowName: !Ref GlueETLWorkflow
+      Predicate:
+        Conditions:
+          - LogicalOperator: EQUALS
+            JobName: !Sub "${ProjectPrefix}-validate-staging-${Environment}"
+            State: SUCCEEDED
+      Actions:
+        - JobName: !Sub "${ProjectPrefix}-etl-transform-${Environment}"
