@@ -1,4 +1,4 @@
-# 🏥 Nursing Home ETL Pipeline with AWS Glue and Snowflake
+# 🏥 ETL Pipeline with AWS Glue and Snowflake
 
 This repository contains infrastructure-as-code templates and scripts to automate a full ETL pipeline that extracts nursing home data from Google Drive, transforms it using AWS Glue, and loads it into Snowflake in a star schema format.
 
